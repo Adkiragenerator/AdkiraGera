@@ -223,35 +223,19 @@
     // ==========================================
     // SUPABASE INICIALIZAÇÃO
     // ==========================================
-    const SUPABASE_URL = 'https://uqijyclewedrileqievu.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxaWp5Y2xld2VkcmlsZXFpZXZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkxNjc5NzEsImV4cCI6MjA4NDc0Mzk3MX0.IVvP0jG-XJVcaF6yD3TDY3_qQseiIRSGS1_e_th01wE';
+    const SUPABASE_URL = 'https://okevdjxksctbkxtonllq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rZXZkanhrc2N0Ymt4dG9ubGxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNDE2OTgsImV4cCI6MjA4NDkxNzY5OH0.g8XGFbcTeR0NosiQqjMbbshDF1Xx9hHUWWPxHJe6hAc';
     
-    const supabaseClient = window.supabase.createClient(
-      SUPABASE_URL,
-      SUPABASE_ANON_KEY,
-      {
-        db: { schema: 'public' },
-        global: {
-          headers: () => {
-            const token = localStorage.getItem('adminSession');
-            return {
-              ...(token ? { 'admin-token': token } : {}),
-              'Prefer': 'return=representation'
-            };
-          }
-        }
-      }
-    );
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      db: { schema: 'public' },
+      global: { headers: { 'Prefer': 'return=representation' } }
+    });
     
     // ==========================================
     // CONSTANTES
     // ==========================================
     const STORAGE_BUCKET = 'invites';
-    
-    const ADMIN_CREDENTIALS = {
-      username: 'Adkira2026',
-      password: 'Adkira2026@!!Ao'
-    };
+// ADMIN_CREDENTIALS removido – autenticação via Supabase Auth
     
     // ==========================================
     // ESTADO GLOBAL
@@ -563,7 +547,7 @@
     };
 
     // ==========================================
-    // UTILIT  RIOS
+    // UTILITÁRIOS
     // ==========================================
     function generateToken() {
       return Math.floor(10000000 + Math.random() * 90000000).toString();
@@ -604,66 +588,47 @@
 
     // ==========================================
     // AUTENTICAÇÃO
-
-    async function checkAdminSession() {
-      const token = localStorage.getItem('adminSession');
-      if (!token) return false;
-
-      const { data, error } = await supabaseClient
-        .rpc('admin_validate_session', { p_token: token });
-
-      if (error) return false;
-      return data === true;
-    }
-
     // ==========================================
-    
-    
     async function handleAdminLogin(e) {
       e.preventDefault();
 
-      const username = document.getElementById('loginUsername').value;
+      const email = document.getElementById('loginUsername').value;
       const password = document.getElementById('loginPassword').value;
+      const rememberMe = document.getElementById('rememberMe').checked;
 
-      const { data, error } = await supabaseClient
-        .rpc('admin_login', {
-          p_username: username,
-          p_password: password
-        });
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password
+      });
 
-      if (error || data !== true) {
+      if (error) {
         showToast('Credenciais inválidas', 'error');
         return;
       }
 
-      const { data: sessionToken } = await supabaseClient
-        .rpc('admin_create_session', { p_username: username });
-
-      localStorage.setItem('adminSession', sessionToken);
       isAdminAuthenticated = true;
+
+      if (rememberMe) {
+        localStorage.setItem('adminAuth', 'true');
+      } else {
+        sessionStorage.setItem('adminAuth', 'true');
+      }
+
       showToast('Login bem-sucedido!', 'success');
       goToAdmin();
     }
 
-
     async function logout() {
-      const token = localStorage.getItem('adminSession');
-      if (token) {
-        await supabaseClient.rpc('admin_logout', { p_token: token });
-      }
-      localStorage.removeItem('adminSession');
+      await supabaseClient.auth.signOut();
       isAdminAuthenticated = false;
+      sessionStorage.removeItem('adminAuth');
+      localStorage.removeItem('adminAuth');
       selectedEventId = null;
       goToHome();
     }
 
-function logoutClient() {
-      currentToken = null;
-      unsubscribeFromEventChanges();
-      goToHome();
-    }
-
     // ==========================================
+
     // CONVERSÃO DE COORDENADAS
     // ==========================================
     function convertPixelsToPoints(pxX, pxY, canvasWidth, canvasHeight) {
@@ -1049,7 +1014,7 @@ function logoutClient() {
         
         // CALCULA A POSIÇÃO X BASEADO NA ÂNCORA
         if (anchorPosition === 'left') {
-          // Âncora    esquerda: o ponto âncora é o início do texto
+          // Âncora à esquerda: o ponto âncora é o início do texto
           finalX = event.position_x_pt;
         } else if (anchorPosition === 'center') {
           // Âncora central: o ponto âncora é o centro do texto
@@ -1445,12 +1410,6 @@ function logoutClient() {
     async function handleGenerateInvite(e) {
       e.preventDefault();
       
-      // ⚠️ VERIFICAÇÃO DE CONEXÃO
-      if (!navigator.onLine) {
-        showToast('❌ Sem conexão à internet. Não é possível gerar convites offline.', 'error');
-        return;
-      }
-      
       const event = await Storage.getEventByToken(currentToken);
       if (!event) return;
       
@@ -1474,7 +1433,6 @@ function logoutClient() {
         return;
       }
       
-      // 🔒 VALIDAÇÃO 1: Verificar limite ANTES de gerar PDF
       const invites = await Storage.getInvites(event.id);
       
       if (invites.length >= event.max_invites) {
@@ -1501,50 +1459,26 @@ function logoutClient() {
       generateBtn.innerHTML = '<div class="loading-spinner mx-auto"></div>';
       
       try {
-        // 🔒 VALIDAÇÃO 2: Reservar vaga ANTES de gerar PDF (transação atômica)
-        console.log('🔒 Reservando vaga no banco de dados...');
-        const saveResult = await Storage.saveInvite({
+        console.log('🔄 Gerando PDF para:', guestName);
+        const pdfBytes = await generatePdfWithName(event, guestName);
+        
+        console.log('📤 Guardando no banco de dados...');
+        await Storage.saveInvite({
           event_id: event.id,
           guest_name: guestName
         });
         
-        if (!saveResult) {
-          throw new Error('Não foi possível reservar vaga. Limite pode ter sido atingido.');
-        }
+        console.log('📥 Iniciando download...');
+        await downloadPdf(pdfBytes, guestName);
         
-        console.log('✅ Vaga reservada! Gerando PDF para:', guestName);
+        guestNameInput.value = '';
+        showToast('✅ Convite gerado e baixado!', 'success');
         
-        try {
-          const pdfBytes = await generatePdfWithName(event, guestName);
-          
-          console.log('📥 Iniciando download...');
-          await downloadPdf(pdfBytes, guestName);
-          
-          guestNameInput.value = '';
-          showToast('✅ Convite gerado e baixado!', 'success');
-          
-          setTimeout(() => render(), 500);
-        } catch (pdfError) {
-          // Se falhar ao gerar PDF, eliminar o registro
-          console.error('❌ Erro ao gerar PDF, eliminando registro...', pdfError);
-          await supabaseClient
-            .from('invites')
-            .delete()
-            .eq('id', saveResult.id);
-          throw pdfError;
-        }
+        setTimeout(() => render(), 500);
         
       } catch (error) {
         console.error('❌ Erro ao gerar convite:', error);
-        
-        if (error.message && error.message.includes('limit')) {
-          showToast('❌ Limite de convites atingido', 'error');
-        } else {
-          showToast('❌ Erro: ' + error.message, 'error');
-        }
-        
-        // Re-renderizar para atualizar contador
-        setTimeout(() => render(), 500);
+        showToast('❌ Erro: ' + error.message, 'error');
       } finally {
         generateBtn.disabled = false;
         generateBtn.innerHTML = '📥 Gerar Convite';
@@ -2274,7 +2208,7 @@ function logoutClient() {
                     <select id="anchorPosition"
                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors">
                       <option value="left">⚓ Âncora à Esquerda</option>
-                      <option value="center" selected>    Âncora Central</option>
+                      <option value="center" selected>⚓ Âncora Central</option>
                       <option value="right">⚓ Âncora à Direita</option>
                     </select>
                   </div>
@@ -2459,16 +2393,9 @@ function logoutClient() {
                     <span>📋</span>
                     <span>Convites Gerados (${invites.length})</span>
                   </h3>
-                  
-                  <div class="mb-4">
-                    <input type="text" id="searchInvites" 
-                      class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors"
-                      placeholder="🔍 Pesquisar por nome do convidado...">
-                  </div>
-                  
-                  <div id="invitesList" class="space-y-2 max-h-80 overflow-y-auto">
+                  <div class="space-y-2 max-h-80 overflow-y-auto">
                     ${invites.map(inv => `
-                      <div class="invite-item" data-guest-name="${inv.guest_name.toLowerCase()}">
+                      <div class="invite-item">
                         <div class="flex flex-col">
                           <span class="font-semibold text-gray-800 ${event.font_path ? 'custom-font-text' : ''}" 
                                 style="${event.font_path ? `color: ${event.text_color};` : ''}">✓ ${inv.guest_name}</span>
@@ -2686,50 +2613,6 @@ function logoutClient() {
       if (generateForm) {
         generateForm.addEventListener('submit', handleGenerateInvite);
       }
-      
-      // Adicionar listener para pesquisa de convites
-      const searchInput = document.getElementById('searchInvites');
-      if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-          const searchTerm = e.target.value.toLowerCase().trim();
-          const invitesList = document.getElementById('invitesList');
-          const inviteItems = invitesList.querySelectorAll('.invite-item');
-          
-          let visibleCount = 0;
-          
-          inviteItems.forEach(item => {
-            const guestName = item.getAttribute('data-guest-name');
-            
-            if (searchTerm === '' || guestName.includes(searchTerm)) {
-              item.style.display = 'flex';
-              visibleCount++;
-            } else {
-              item.style.display = 'none';
-            }
-          });
-          
-          // Mostrar mensagem se nenhum resultado for encontrado
-          let noResultsMsg = document.getElementById('noResultsMsg');
-          
-          if (visibleCount === 0 && searchTerm !== '') {
-            if (!noResultsMsg) {
-              noResultsMsg = document.createElement('div');
-              noResultsMsg.id = 'noResultsMsg';
-              noResultsMsg.className = 'text-center py-8 text-gray-500';
-              noResultsMsg.innerHTML = `
-                <div class="text-4xl mb-2">🔍</div>
-                <p class="font-semibold">Nenhum convite encontrado</p>
-                <p class="text-sm mt-1">Tente pesquisar com outro nome</p>
-              `;
-              invitesList.appendChild(noResultsMsg);
-            }
-          } else {
-            if (noResultsMsg) {
-              noResultsMsg.remove();
-            }
-          }
-        });
-      }
     }
 
     // ==========================================
@@ -2781,5 +2664,5 @@ function logoutClient() {
       init();
     }
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c2945e320e3aa64',t:'MTc2OTE5MjA5MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c284b61b32faa64',t:'MTc2OTE4MTgyOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
