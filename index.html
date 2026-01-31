@@ -43,6 +43,22 @@
       touch-action: none;
     }
     
+    .resize-handle {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background: #6366f1;
+      border: 2px solid white;
+      border-radius: 50%;
+      cursor: nwse-resize;
+      z-index: 20;
+    }
+    
+    .resize-handle.bottom-right {
+      bottom: -6px;
+      right: -6px;
+    }
+    
     .canvas-container {
       position: relative;
       display: inline-block;
@@ -86,6 +102,10 @@
     let dragOffsetY = 0;
     let currentRenderTask = null;
     let realtimeChannel = null;
+    let isResizing = false;
+    let resizeStartSize = 0;
+    let resizeStartX = 0;
+    let resizeStartY = 0;
     
     // Estado dos eventos e convites
     let events = [];
@@ -782,7 +802,7 @@
         if (validationError) {
           console.error('Erro de validação:', validationError);
           
-          // Mensagens específicas baseadas no erro do backend
+          // Mensagens espec  ficas baseadas no erro do backend
           if (validationError.message.includes('limit reached')) {
             showToast('Limite máximo de convites atingido', 'error');
           } else if (validationError.message.includes('event not found')) {
@@ -1101,10 +1121,14 @@
         textElement.style.color = value;
       }
       
-      // Reposicionar se a âncora mudou
+      // ✅ SEMPRE reposicionar quando o tamanho da fonte muda
+      // Isso garante que o texto cresça dos dois lados (esquerda e direita)
       if (property === 'anchor_position' || property === 'font_size') {
         const canvas = document.getElementById('pdfCanvas');
         if (!canvas) return;
+        
+        // ✅ Forçar o navegador a recalcular o width ANTES de reposicionar
+        void textElement.offsetWidth;
         
         const { x, y } = ptToPx(
           tempEvent.position_x_pt,
@@ -1164,7 +1188,25 @@
       }, 100);
     }
     
+    function startResize(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      isResizing = true;
+      const qrElement = document.getElementById('draggableQr');
+      if (!qrElement) return;
+      
+      const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+      
+      resizeStartSize = qrElement.offsetWidth;
+      resizeStartX = clientX;
+      resizeStartY = clientY;
+    }
+    
     function startDrag(e) {
+      if (isResizing) return;
+      
       e.preventDefault();
       draggedElement = e.target;
       
@@ -1177,6 +1219,32 @@
     }
     
     function drag(e) {
+      if (isResizing) {
+        const qrElement = document.getElementById('draggableQr');
+        if (!qrElement) return;
+        
+        e.preventDefault();
+        
+        const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+        const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+        
+        const deltaX = clientX - resizeStartX;
+        const deltaY = clientY - resizeStartY;
+        const delta = Math.max(deltaX, deltaY);
+        
+        let newSize = resizeStartSize + delta;
+        newSize = Math.max(50, Math.min(newSize, 400));
+        
+        qrElement.style.width = `${newSize}px`;
+        qrElement.style.height = `${newSize}px`;
+        
+        const canvas = document.getElementById('pdfCanvas');
+        const qrPtSize = (newSize / canvas.width) * pdfPageDimensions.width;
+        qrElement.innerHTML = `QR CODE<br>${Math.round(qrPtSize)}pt<div class="resize-handle bottom-right" onmousedown="startResize(event)" ontouchstart="startResize(event)"></div>`;
+        
+        return;
+      }
+      
       if (!draggedElement) return;
       e.preventDefault();
       
@@ -1197,6 +1265,25 @@
     }
     
     async function endDrag(e) {
+      if (isResizing) {
+        const qrElement = document.getElementById('draggableQr');
+        if (!qrElement) {
+          isResizing = false;
+          return;
+        }
+        
+        const canvas = document.getElementById('pdfCanvas');
+        const qrPxSize = qrElement.offsetWidth;
+        const qrPtSize = (qrPxSize / canvas.width) * pdfPageDimensions.width;
+        
+        await updateEvent(selectedEventId, {
+          qr_size_pt: Math.round(qrPtSize)
+        });
+        
+        isResizing = false;
+        return;
+      }
+      
       if (!draggedElement) return;
       
       const canvas = document.getElementById('pdfCanvas');
@@ -1416,9 +1503,13 @@
               }
             }
             
+            // ✅ CORREÇÃO: Em PDF, o Y começa de BAIXO para CIMA
+            // No canvas, o Y começa do TOPO para BAIXO
+            // A posição armazenada (qr_position_y_pt) já está no sistema do PDF
+            // Mas precisamos subtrair a altura do QR code porque drawImage desenha do canto inferior esquerdo
             page.drawImage(qrImage, {
               x: event.qr_position_x_pt,
-              y: event.qr_position_y_pt,
+              y: event.qr_position_y_pt - event.qr_size_pt,
               width: event.qr_size_pt,
               height: event.qr_size_pt
             });
@@ -1808,6 +1899,20 @@
           
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
+              PDF Base
+            </label>
+            <input 
+              type="file" 
+              accept=".pdf"
+              onchange="handlePdfReupload(event)"
+              class="w-full text-sm">
+            <p class="text-xs text-gray-500 mt-1">
+              ${event.pdf_path ? '✓ PDF carregado. Escolha novo PDF para substituir' : 'Nenhum PDF carregado'}
+            </p>
+          </div>
+          
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
               Fonte Personalizada
             </label>
             <input 
@@ -1999,6 +2104,7 @@
                     text-align: center;
                   ">
                   QR CODE<br>${event.qr_size_pt}pt
+                  <div class="resize-handle bottom-right" onmousedown="startResize(event)" ontouchstart="startResize(event)"></div>
                 </div>
               ` : ''}
             </div>
@@ -2019,7 +2125,7 @@
                     <button 
                       onclick="handleRedownload('${event.id}', '${invite.guest_name}')"
                       class="text-indigo-600 hover:text-indigo-800 text-sm">
-                      ⬇ Baixar
+                         Baixar
                     </button>
                     <button 
                       onclick="handleDeleteInvite('${invite.id}')"
@@ -2059,7 +2165,7 @@
         return `
           <div class="flex items-center justify-center min-h-full bg-gray-50 p-4">
             <div class="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-              <div class="text-6xl mb-4">🚫</div>
+              <div class="text-6xl mb-4">    </div>
               <h2 class="text-2xl font-bold text-gray-800 mb-4">Evento Inativo</h2>
               <p class="text-gray-600 mb-6">Este evento não está mais aceitando convites.</p>
               <button 
@@ -2232,6 +2338,56 @@
       } catch (error) {
         console.error('Erro ao processar fonte:', error);
         showToast('Erro ao processar fonte', 'error');
+      }
+    }
+    
+    async function handlePdfReupload(e) {
+      try {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        if (file.size > 10 * 1024 * 1024) {
+          showToast('PDF deve ter no máximo 10MB', 'error');
+          e.target.value = '';
+          return;
+        }
+        
+        if (!selectedEventId) {
+          showToast('Nenhum evento selecionado', 'error');
+          e.target.value = '';
+          return;
+        }
+        
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfBytes = new Uint8Array(arrayBuffer);
+        
+        const pdfPath = await uploadPdf(selectedEventId, pdfBytes);
+        if (pdfPath) {
+          await updateEvent(selectedEventId, { 
+            pdf_path: pdfPath,
+            page_number: 1  // Reset para página 1 quando trocar o PDF
+          });
+          
+          showToast('PDF atualizado com sucesso!');
+          
+          // Renderizar o novo PDF no canvas
+          setTimeout(async () => {
+            if (currentEvent && currentEvent.pdf_path) {
+              const pdfBlob = await downloadFile(currentEvent.pdf_path);
+              if (pdfBlob) {
+                const arrayBuffer = await pdfBlob.arrayBuffer();
+                await renderPdfOnCanvas(new Uint8Array(arrayBuffer), 1);
+                initDragAndDrop();
+              }
+            }
+          }, 100);
+        }
+        
+        e.target.value = '';
+      } catch (error) {
+        console.error('Erro ao re-fazer upload do PDF:', error);
+        showToast('Erro ao atualizar PDF', 'error');
+        e.target.value = '';
       }
     }
     
@@ -2899,5 +3055,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6928a4477d06e3',t:'MTc2OTg2MTk4MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6a8f9f955e06e3',t:'MTc2OTg3NjY4NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
