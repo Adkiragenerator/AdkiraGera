@@ -1597,6 +1597,10 @@
                 type="text" 
                 id="tokenInput"
                 placeholder="Insira o token do evento"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
                 class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
               
               <button 
@@ -1622,7 +1626,7 @@
             
             <h2 class="text-2xl font-bold text-gray-800 mb-6">Login Administrador</h2>
             
-            <form onsubmit="handleLogin(event)" class="space-y-4">
+            <form onsubmit="handleLogin(event)" class="space-y-4" autocomplete="off">
               <div>
                 <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
                   Email
@@ -1631,6 +1635,10 @@
                   type="email" 
                   id="email"
                   required
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="off"
+                  spellcheck="false"
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
               </div>
               
@@ -1642,6 +1650,7 @@
                   type="password" 
                   id="password"
                   required
+                  autocomplete="new-password"
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
               </div>
               
@@ -2193,7 +2202,7 @@
               </p>
             </div>
             
-            <form onsubmit="handleGenerateInvite(event)" class="space-y-4 mb-8">
+            <form onsubmit="handleGenerateInvite(event)" class="space-y-4 mb-8" autocomplete="off">
               <div>
                 <label for="guestName" class="block text-sm font-medium text-gray-700 mb-2">
                   Seu Nome Completo
@@ -2203,6 +2212,10 @@
                   id="guestName"
                   required
                   placeholder="Digite seu nome"
+                  autocomplete="off"
+                  autocorrect="off"
+                  autocapitalize="words"
+                  spellcheck="false"
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
               </div>
               
@@ -3055,5 +3068,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6a8f9f955e06e3',t:'MTc2OTg3NjY4NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6b8a14f2e606e3',t:'MTc2OTg4Njk0My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
