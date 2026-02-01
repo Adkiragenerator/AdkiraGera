@@ -366,6 +366,156 @@
     }
     
     // ============================================
+    // TOKENS MÚLTIPLOS
+    // ============================================
+    let eventTokens = [];
+    
+    async function loadEventTokens(eventId) {
+      try {
+        const { data, error } = await sb
+          .from('event_tokens')
+          .select('*')
+          .eq('event_id', eventId)
+          .order('created_at', { ascending: true });
+        
+        if (error) throw error;
+        
+        eventTokens = data || [];
+        return eventTokens;
+      } catch (error) {
+        console.error('Erro ao carregar tokens:', error);
+        showToast('Erro ao carregar tokens', 'error');
+        return [];
+      }
+    }
+    
+    async function createEventToken(eventId, tokenData) {
+      try {
+        const { data, error } = await sb
+          .from('event_tokens')
+          .insert([{
+            event_id: eventId,
+            token: tokenData.token,
+            token_name: tokenData.token_name,
+            max_invites: tokenData.max_invites,
+            active: true
+          }])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        showToast('Token criado com sucesso!');
+        return data;
+      } catch (error) {
+        console.error('Erro ao criar token:', error);
+        showToast('Erro ao criar token', 'error');
+        return null;
+      }
+    }
+    
+    async function updateEventToken(tokenId, updates) {
+      try {
+        const { data, error } = await sb
+          .from('event_tokens')
+          .update(updates)
+          .eq('id', tokenId)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        return data;
+      } catch (error) {
+        console.error('Erro ao atualizar token:', error);
+        showToast('Erro ao atualizar token', 'error');
+        return null;
+      }
+    }
+    
+    async function deleteEventToken(tokenId) {
+      try {
+        const { error } = await sb
+          .from('event_tokens')
+          .delete()
+          .eq('id', tokenId);
+        
+        if (error) throw error;
+        
+        showToast('Token eliminado');
+        return true;
+      } catch (error) {
+        console.error('Erro ao eliminar token:', error);
+        showToast('Erro ao eliminar token', 'error');
+        return false;
+      }
+    }
+    
+    async function getTokenStats(tokenId) {
+      try {
+        const { data, error } = await sb
+          .from('invites')
+          .select('id')
+          .eq('token_id', tokenId);
+        
+        if (error) throw error;
+        
+        return data ? data.length : 0;
+      } catch (error) {
+        console.error('Erro ao buscar estatísticas do token:', error);
+        return 0;
+      }
+    }
+    
+    async function loadEventByTokenString(tokenString) {
+      try {
+        if (!validateToken(tokenString)) {
+          console.error('Token inválido na validação:', tokenString);
+          showToast('Token inválido', 'error');
+          return null;
+        }
+        
+        console.log('Buscando token:', tokenString);
+        
+        // Buscar o token na tabela event_tokens
+        const { data: tokenData, error: tokenError } = await sb
+          .from('event_tokens')
+          .select('*, events(*)')
+          .eq('token', tokenString)
+          .single();
+        
+        if (tokenError) {
+          if (tokenError.code === 'PGRST116') {
+            // Token não encontrado em event_tokens, buscar no token principal do evento
+            const { data: eventData, error: eventError } = await sb
+              .from('events')
+              .select('*')
+              .eq('token', tokenString)
+              .single();
+            
+            if (eventError) {
+              console.error('Token não encontrado:', tokenString);
+              showToast('Token não encontrado', 'error');
+              return null;
+            }
+            
+            console.log('Evento encontrado (token principal):', eventData);
+            return { event: eventData, tokenData: null };
+          } else {
+            throw tokenError;
+          }
+        }
+        
+        console.log('Token encontrado:', tokenData);
+        return { event: tokenData.events, tokenData: tokenData };
+      } catch (error) {
+        console.error('Erro ao carregar evento por token:', error);
+        showToast('Erro ao carregar evento: ' + error.message, 'error');
+        return null;
+      }
+    }
+    
+    // ============================================
     // EVENTOS - CRUD SUPABASE
     // ============================================
     async function loadEvents() {
@@ -788,7 +938,7 @@
       }
     }
     
-    async function createInviteInDatabase(eventId, guestName, qrCodeId = null) {
+    async function createInviteInDatabase(eventId, guestName, qrCodeId = null, tokenId = null) {
       try {
         // VALIDAÇÃO E CRIAÇÃO NO BACKEND
         // Esta função cria o convite no banco ANTES de gerar o PDF
@@ -796,7 +946,8 @@
           .rpc('validate_and_create_invite', {
             p_event_id: eventId,
             p_guest_name: guestName,
-            p_qr_code_id: qrCodeId
+            p_qr_code_id: qrCodeId,
+            p_token_id: tokenId
           });
         
         if (validationError) {
@@ -1127,7 +1278,7 @@
         const canvas = document.getElementById('pdfCanvas');
         if (!canvas) return;
         
-        // ✅ Forçar o navegador a recalcular o width ANTES de reposicionar
+        // ✅ For  ar o navegador a recalcular o width ANTES de reposicionar
         void textElement.offsetWidth;
         
         const { x, y } = ptToPx(
@@ -1320,7 +1471,7 @@
     // ============================================
     // GERAÇÃO DE PDF
     // ============================================
-    async function generateInvitePdf(eventId, guestName) {
+    async function generateInvitePdf(eventId, guestName, tokenId = null) {
       try {
         const event = await loadEvent(eventId);
         if (!event) {
@@ -1341,7 +1492,7 @@
         // PASSO 2: CRIAR CONVITE NO BANCO **ANTES** DE GERAR PDF
         // ✅ FLUXO SEGURO: verificar limite → criar convite → gerar PDF
         // Se falhar aqui, o PDF não será gerado (não há "PDF grátis")
-        const invite = await createInviteInDatabase(eventId, guestName, qrCodeData ? qrCodeData.id : null);
+        const invite = await createInviteInDatabase(eventId, guestName, qrCodeData ? qrCodeData.id : null, tokenId);
         if (!invite) {
           // Erro já foi exibido por createInviteInDatabase()
           return null;
@@ -1368,7 +1519,7 @@
               const fontBytes = await fontBlob.arrayBuffer();
               font = await pdfDoc.embedFont(fontBytes);
             } else {
-              showToast('Fonte personalizada não encontrada. A usar fonte padrão', 'error');
+              showToast('Fonte personalizada não encontrada. A usar fonte padr  o', 'error');
               font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
             }
           } else {
@@ -1662,7 +1813,7 @@
             </form>
             
             <div class="mt-6 pt-4 border-t border-gray-200 text-center text-xs text-gray-500">
-              © AdKira 2026 Todos os direitos reservados
+                 AdKira 2026 Todos os direitos reservados
             </div>
           </div>
         </div>
@@ -1791,7 +1942,7 @@
             ${event ? renderEventMain(event) : `
               <div class="flex items-center justify-center h-full">
                 <div class="text-center text-gray-500">
-                  <div class="text-6xl mb-4">📋</div>
+                  <div class="text-6xl mb-4">   </div>
                   <p class="text-xl">Selecione ou crie um evento</p>
                 </div>
               </div>
@@ -1930,6 +2081,46 @@
               onchange="handleFontUpload(event)"
               class="w-full text-sm">
             ${event.font_name ? `<p class="text-xs text-gray-500 mt-1">Atual: ${event.font_name}</p>` : ''}
+          </div>
+          
+          <div class="border-t border-gray-200 pt-4">
+            <div class="flex items-center justify-between mb-3">
+              <label class="flex items-center">
+                <input 
+                  type="checkbox" 
+                  ${event.multiple_tokens ? 'checked' : ''}
+                  onchange="toggleMultipleTokens('${event.id}', this.checked)"
+                  class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                <span class="ml-2 text-sm font-medium text-gray-700">
+                  Múltiplos Tokens
+                </span>
+              </label>
+            </div>
+            
+            ${event.multiple_tokens ? `
+              <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg border-2 border-indigo-200 space-y-3">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-sm font-bold text-indigo-700">📋 Tokens do Evento</h4>
+                  <button 
+                    onclick="showCreateTokenModal('${event.id}')"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-xs transition">
+                    + Criar Token
+                  </button>
+                </div>
+                
+                <div id="tokensList" class="space-y-2">
+                  ${eventTokens.length === 0 ? `
+                    <p class="text-xs text-gray-500 text-center py-2">Nenhum token criado</p>
+                  ` : ''}
+                </div>
+              </div>
+            ` : `
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p class="text-xs text-blue-800">
+                  💡 <strong>Ative Múltiplos Tokens</strong> para criar links separados com limites individuais (exemplo: um token para cada noivo)
+                </p>
+              </div>
+            `}
           </div>
           
           <div class="border-t border-gray-200 pt-4">
@@ -2202,6 +2393,24 @@
               </p>
             </div>
             
+            ${remainingInvites > 0 && remainingInvites <= 10 ? `
+              <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex-1">
+                    <p class="text-xs text-blue-800">
+                      💡 <strong>Restam ${remainingInvites} convite${remainingInvites !== 1 ? 's' : ''}</strong>. 
+                      Pode adicionar +20 convites por apenas 15.000 Kz.
+                    </p>
+                  </div>
+                  <button 
+                    onclick="dismissUpgradeNotification()"
+                    class="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                    ✕
+                  </button>
+                </div>
+              </div>
+            ` : ''}
+            
             <form onsubmit="handleGenerateInvite(event)" class="space-y-4 mb-8" autocomplete="off">
               <div>
                 <label for="guestName" class="block text-sm font-medium text-gray-700 mb-2">
@@ -2264,6 +2473,181 @@
     // ============================================
     // HANDLERS
     // ============================================
+    async function toggleMultipleTokens(eventId, enabled) {
+      try {
+        await updateEvent(eventId, { multiple_tokens: enabled });
+        
+        if (enabled) {
+          // ✅ Criar automaticamente 2 tokens quando ativar a opção
+          const existingTokens = await loadEventTokens(eventId);
+          
+          if (existingTokens.length === 0) {
+            // Token 1
+            await createEventToken(eventId, {
+              token: generateSecureToken(),
+              token_name: 'Token 1',
+              max_invites: 20
+            });
+            
+            // Token 2
+            await createEventToken(eventId, {
+              token: generateSecureToken(),
+              token_name: 'Token 2',
+              max_invites: 20
+            });
+            
+            showToast('2 tokens criados automaticamente!');
+          }
+          
+          await loadEventTokens(eventId);
+        }
+        
+        render();
+        
+        setTimeout(async () => {
+          if (currentEvent && currentEvent.pdf_path) {
+            const pdfBlob = await downloadFile(currentEvent.pdf_path);
+            if (pdfBlob) {
+              const arrayBuffer = await pdfBlob.arrayBuffer();
+              await renderPdfOnCanvas(new Uint8Array(arrayBuffer), currentEvent.page_number);
+              initDragAndDrop();
+            }
+          }
+          
+          if (enabled) {
+            updateTokensList();
+          }
+        }, 100);
+      } catch (error) {
+        console.error('Erro ao alternar múltiplos tokens:', error);
+        showToast('Erro ao alternar múltiplos tokens', 'error');
+      }
+    }
+    
+    async function showCreateTokenModal(eventId) {
+      const tokenName = prompt('Nome do Token (ex: "Noivo 1", "Família"):');
+      if (!tokenName || !tokenName.trim()) return;
+      
+      const maxInvites = prompt('Limite de convites para este token:', '20');
+      if (!maxInvites || isNaN(parseInt(maxInvites))) return;
+      
+      const token = generateSecureToken();
+      
+      const newToken = await createEventToken(eventId, {
+        token: token,
+        token_name: tokenName.trim(),
+        max_invites: parseInt(maxInvites)
+      });
+      
+      if (newToken) {
+        await loadEventTokens(eventId);
+        updateTokensList();
+      }
+    }
+    
+    async function updateTokensList() {
+      const tokensList = document.getElementById('tokensList');
+      if (!tokensList || !currentEvent) return;
+      
+      if (eventTokens.length === 0) {
+        tokensList.innerHTML = '<p class="text-xs text-gray-500 text-center py-2">Nenhum token criado</p>';
+        return;
+      }
+      
+      const tokensHtml = await Promise.all(eventTokens.map(async (token) => {
+        const usedCount = await getTokenStats(token.id);
+        const percentage = (usedCount / token.max_invites) * 100;
+        
+        return `
+          <div class="bg-white p-3 rounded border ${token.active ? 'border-green-300' : 'border-gray-300'}">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-sm">${token.token_name}</span>
+                <span class="text-xs px-2 py-0.5 rounded ${token.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}">
+                  ${token.active ? 'Ativo' : 'Inativo'}
+                </span>
+              </div>
+              <button 
+                onclick="toggleTokenActive('${token.id}', ${!token.active})"
+                class="text-xs ${token.active ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'}">
+                ${token.active ? '⏸ Pausar' : '▶ Ativar'}
+              </button>
+            </div>
+            
+            <div class="mb-2">
+              <div class="flex items-center justify-between text-xs text-gray-600 mb-1">
+                <span>${usedCount} / ${token.max_invites} convites</span>
+                <span>${Math.round(percentage)}%</span>
+              </div>
+              <div class="w-full bg-gray-200 rounded-full h-2">
+                <div class="bg-indigo-600 h-2 rounded-full" style="width: ${percentage}%"></div>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <input 
+                type="number" 
+                value="${token.max_invites}"
+                min="1"
+                onchange="updateEventToken('${token.id}', { max_invites: parseInt(this.value) })"
+                class="flex-1 px-2 py-1 border border-gray-300 rounded text-xs">
+              <button 
+                onclick="copyTokenLink('${token.token}')"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-2 py-1 rounded text-xs transition">
+                📋 Copiar
+              </button>
+              <button 
+                onclick="confirmDeleteToken('${token.id}')"
+                class="text-red-600 hover:text-red-800 text-xs">
+                🗑
+              </button>
+            </div>
+          </div>
+        `;
+      }));
+      
+      tokensList.innerHTML = tokensHtml.join('');
+    }
+    
+    async function toggleTokenActive(tokenId, active) {
+      try {
+        await updateEventToken(tokenId, { active });
+        await loadEventTokens(selectedEventId);
+        updateTokensList();
+      } catch (error) {
+        console.error('Erro ao alternar estado do token:', error);
+      }
+    }
+    
+    function copyTokenLink(token) {
+      const link = `${window.location.origin}${window.location.pathname}?token=${token}`;
+      
+      navigator.clipboard.writeText(link).then(() => {
+        showToast('Link copiado!');
+      }).catch(err => {
+        console.error('Erro ao copiar:', err);
+        showToast('Erro ao copiar link', 'error');
+      });
+    }
+    
+    function confirmDeleteToken(tokenId) {
+      if (confirm('Eliminar este token? Esta ação não pode ser desfeita.')) {
+        handleDeleteToken(tokenId);
+      }
+    }
+    
+    async function handleDeleteToken(tokenId) {
+      try {
+        const success = await deleteEventToken(tokenId);
+        if (success) {
+          await loadEventTokens(selectedEventId);
+          updateTokensList();
+        }
+      } catch (error) {
+        console.error('Erro ao eliminar token:', error);
+      }
+    }
+    
     async function handleTokenSubmit() {
       try {
         const input = document.getElementById('tokenInput');
@@ -2279,8 +2663,8 @@
           return;
         }
         
-        const event = await loadEventByToken(token);
-        if (event) {
+        const result = await loadEventByTokenString(token);
+        if (result) {
           navigate('client', { token });
         }
       } catch (error) {
@@ -2643,17 +3027,22 @@
         btn.disabled = true;
         btn.textContent = 'Gerando...';
         
-        const event = await loadEventByToken(currentToken);
-        if (!event) {
+        // ✅ Verificar se é token principal ou token secundário
+        const result = await loadEventByTokenString(currentToken);
+        if (!result) {
           showToast('Evento não encontrado', 'error');
           btn.disabled = false;
           btn.textContent = 'Gerar Convite';
           return;
         }
         
+        const event = result.event;
+        const tokenData = result.tokenData; // null se for token principal
+        
         currentEvent = event;
         
-        const pdfBytes = await generateInvitePdf(event.id, guestName);
+        // ✅ Passar token_id para generateInvitePdf (se houver)
+        const pdfBytes = await generateInvitePdf(event.id, guestName, tokenData ? tokenData.id : null);
         
         if (pdfBytes) {
           downloadPdf(pdfBytes, `${guestName}.pdf`);
@@ -2952,6 +3341,16 @@
       });
     }
     
+    function dismissUpgradeNotification() {
+      const notification = window.event.target.closest('div.bg-gradient-to-r');
+      if (notification) {
+        notification.style.animation = 'slideIn 0.3s ease-out reverse';
+        setTimeout(() => {
+          notification.remove();
+        }, 300);
+      }
+    }
+    
     function updateInvitesList() {
       const invitesList = document.getElementById('invitesList');
       if (!invitesList || !currentEvent) return;
@@ -3058,11 +3457,17 @@
         if (urlToken) {
           if (validateToken(urlToken)) {
             currentToken = urlToken;
-            const event = await loadEventByToken(urlToken);
-            if (event) {
-              currentEvent = event;
-              await loadInvites(event.id);
-              subscribeToEvent(event.id);
+            const result = await loadEventByTokenString(urlToken);
+            if (result) {
+              currentEvent = result.event;
+              await loadInvites(result.event.id);
+              
+              // ✅ Carregar tokens se múltiplos tokens estiverem ativados
+              if (result.event.multiple_tokens) {
+                await loadEventTokens(result.event.id);
+              }
+              
+              subscribeToEvent(result.event.id);
               navigate('client', { token: urlToken });
             } else {
               navigate('home');
@@ -3086,5 +3491,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6f1592c14c06e3',t:'MTc2OTkyNDExNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6fca68116c06e3',t:'MTc2OTkzMTUyMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
