@@ -2427,6 +2427,7 @@
       // ✅ LIMITE REAL: Se QR ativado → usa QR codes disponíveis, senão usa max_invites
       const effectiveLimit = event.qr_enabled ? totalQrs : event.max_invites;
       const remainingInvites = event.qr_enabled ? availableQrs : (event.max_invites - eventInvites.length);
+      const generatedCount = eventInvites.length;
       
       return `
         <div class="flex items-center justify-center min-h-full bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4">
@@ -2436,8 +2437,9 @@
               <h1 class="text-3xl font-bold text-gray-800 mb-2">${event.event_name}</h1>
               <p class="text-gray-600">Gere o seu convite personalizado</p>
               <p class="text-sm text-gray-500 mt-2">
-                ${remainingInvites} convite${remainingInvites !== 1 ? 's' : ''} disponíve${remainingInvites !== 1 ? 'is' : 'l'}
-                ${event.qr_enabled ? `(${availableQrs} QR codes disponíveis)` : ''}
+                <span class="font-semibold text-green-600">${remainingInvites} disponíve${remainingInvites !== 1 ? 'is' : 'l'}</span>
+                <span class="mx-2">•</span>
+                <span class="font-semibold text-blue-600">${generatedCount} gerado${generatedCount !== 1 ? 's' : ''}</span>
               </p>
             </div>
             
@@ -3507,6 +3509,7 @@
             if (result) {
               currentEvent = result.event;
               await loadInvites(result.event.id);
+              await loadQrCodes(result.event.id);
               
               // ✅ Carregar tokens se múltiplos tokens estiverem ativados
               if (result.event.multiple_tokens) {
@@ -3537,5 +3540,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c700c9142d20db4',t:'MTc2OTkzNDIzMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c702c53d44806e3',t:'MTc2OTkzNTUzMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
