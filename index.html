@@ -2137,7 +2137,7 @@
                          Baixar
                     </button>
                     <button 
-                      onclick="handleDeleteInvite('${invite.id}')"
+                      onclick="confirmDeleteInvite('${invite.id}', '${invite.guest_name}')"
                       class="text-red-600 hover:text-red-800 text-sm">
                       🗑 Eliminar
                     </button>
@@ -2214,7 +2214,7 @@
                   placeholder="Digite seu nome"
                   autocomplete="off"
                   autocorrect="off"
-                  autocapitalize="words"
+                  autocapitalize="off"
                   spellcheck="false"
                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
               </div>
@@ -2896,6 +2896,24 @@
       }
     }
     
+    function confirmDeleteInvite(inviteId, guestName) {
+      const confirmBtn = window.event.target;
+      
+      if (confirmBtn.textContent.includes('Eliminar')) {
+        confirmBtn.textContent = 'Confirmar?';
+        confirmBtn.classList.remove('text-red-600', 'hover:text-red-800');
+        confirmBtn.classList.add('text-red-800', 'font-bold');
+        
+        setTimeout(() => {
+          confirmBtn.textContent = '🗑 Eliminar';
+          confirmBtn.classList.remove('text-red-800', 'font-bold');
+          confirmBtn.classList.add('text-red-600', 'hover:text-red-800');
+        }, 3000);
+      } else {
+        handleDeleteInvite(inviteId);
+      }
+    }
+    
     async function handleDeleteInvite(inviteId) {
       try {
         await deleteInvite(inviteId);
@@ -2953,7 +2971,7 @@
                 ⬇ Baixar
               </button>
               <button 
-                onclick="handleDeleteInvite('${invite.id}')"
+                onclick="confirmDeleteInvite('${invite.id}', '${invite.guest_name}')"
                 class="text-red-600 hover:text-red-800 text-sm">
                 🗑 Eliminar
               </button>
@@ -3068,5 +3086,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6b8a14f2e606e3',t:'MTc2OTg4Njk0My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6f1592c14c06e3',t:'MTc2OTkyNDExNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
