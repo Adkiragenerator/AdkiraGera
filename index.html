@@ -807,13 +807,7 @@
           
           console.log('QR codes inseridos com sucesso:', data);
           
-          // ✅ Ajustar limite de convites automaticamente ao número de QR codes (SE QR estiver ativado)
-          if (event.qr_enabled && totalQrs > event.max_invites) {
-            await updateEvent(eventId, { max_invites: totalQrs });
-            showToast(`${uploadedQrs.length} QR code${uploadedQrs.length > 1 ? 's' : ''} carregado${uploadedQrs.length > 1 ? 's' : ''}! Limite ajustado para ${totalQrs} convites`);
-          } else {
-            showToast(`${uploadedQrs.length} QR code${uploadedQrs.length > 1 ? 's' : ''} carregado${uploadedQrs.length > 1 ? 's' : ''} com sucesso!`);
-          }
+          showToast(`${uploadedQrs.length} QR code${uploadedQrs.length > 1 ? 's' : ''} carregado${uploadedQrs.length > 1 ? 's' : ''} com sucesso!`);
           
           return true;
         } else {
@@ -887,31 +881,26 @@
       }
     }
     
-    async function markQrCodeAsUsed(qrId, inviteId, deleteAfterUse = true) {
+    async function markQrCodeAsUsed(qrId, inviteId) {
       try {
-        if (deleteAfterUse) {
-          const { error } = await sb
-            .from('qr_codes')
-            .delete()
-            .eq('id', qrId);
-          
-          if (error) throw error;
-          
-          console.log(`QR code ${qrId} eliminado após ser usado no convite ${inviteId}`);
-        } else {
-          const { error } = await sb
-            .from('qr_codes')
-            .update({ used: true })
-            .eq('id', qrId);
-          
-          if (error) throw error;
-          
-          console.log(`QR code ${qrId} marcado como usado no convite ${inviteId}`);
-        }
+        // ✅ Marcar QR code como usado E associar ao convite (não eliminar)
+        // Isso permite que o cliente baixe novamente o mesmo convite com o mesmo QR code
+        const { error } = await sb
+          .from('qr_codes')
+          .update({ 
+            used: true,
+            invite_id: inviteId,
+            used_at: new Date().toISOString()
+          })
+          .eq('id', qrId);
+        
+        if (error) throw error;
+        
+        console.log(`✅ QR code ${qrId} marcado como usado no convite ${inviteId}`);
         
         return true;
       } catch (error) {
-        console.error('Erro ao processar QR code usado:', error);
+        console.error('Erro ao marcar QR code como usado:', error);
         return false;
       }
     }
@@ -1479,23 +1468,80 @@
           return null;
         }
         
-        // PASSO 1: Buscar QR code disponível (SE necessário)
+        // PASSO 1: Verificar se o convite já existe (para re-download)
+        const existingInvites = await loadInvites(eventId);
+        const existingInvite = existingInvites.find(i => i.guest_name === guestName && i.event_id === eventId);
+        
         let qrCodeData = null;
-        if (event.qr_enabled) {
-          qrCodeData = await getNextAvailableQrCode(eventId);
-          if (!qrCodeData) {
-            showToast('Não há QR codes disponíveis para este evento', 'error');
+        let invite = existingInvite;
+        
+        if (existingInvite) {
+          // ✅ CONVITE JÁ EXISTE - Re-usar o mesmo QR code associado
+          if (event.qr_enabled && existingInvite.qr_code_id) {
+            const { data, error } = await sb
+              .from('qr_codes')
+              .select('*')
+              .eq('id', existingInvite.qr_code_id)
+              .single();
+            
+            if (!error && data) {
+              qrCodeData = data;
+              console.log(`✅ Re-usando QR code ${qrCodeData.id} para convite existente`);
+            }
+          }
+        } else {
+          // ✅ NOVO CONVITE - Validar limite ANTES de buscar QR code
+          
+          // ✅ VALIDAÇÃO DE LIMITE BASEADA EM QR CODES
+          if (event.qr_enabled) {
+            const qrs = await loadQrCodes(eventId);
+            const availableQrs = qrs.filter(qr => !qr.used).length;
+            
+            if (availableQrs === 0) {
+              showToast('Não há QR codes disponíveis para este evento', 'error');
+              return null;
+            }
+            
+            // Buscar QR code disponível
+            qrCodeData = await getNextAvailableQrCode(eventId);
+            if (!qrCodeData) {
+              showToast('Não há QR codes disponíveis para este evento', 'error');
+              return null;
+            }
+          } else {
+            // ✅ VALIDAÇÃO DE LIMITE MANUAL (max_invites)
+            if (existingInvites.length >= event.max_invites) {
+              showToast(`Limite de ${event.max_invites} convites atingido`, 'error');
+              return null;
+            }
+          }
+          
+          // ✅ Validar nome duplicado
+          const duplicate = existingInvites.find(i => i.guest_name.toLowerCase() === guestName.toLowerCase());
+          if (duplicate) {
+            showToast('Nome já registado neste evento', 'error');
             return null;
           }
-        }
-        
-        // PASSO 2: CRIAR CONVITE NO BANCO **ANTES** DE GERAR PDF
-        // ✅ FLUXO SEGURO: verificar limite → criar convite → gerar PDF
-        // Se falhar aqui, o PDF não será gerado (não há "PDF grátis")
-        const invite = await createInviteInDatabase(eventId, guestName, qrCodeData ? qrCodeData.id : null, tokenId);
-        if (!invite) {
-          // Erro já foi exibido por createInviteInDatabase()
-          return null;
+          
+          // PASSO 2: CRIAR CONVITE NO BANCO
+          const { data: newInvite, error: insertError } = await sb
+            .from('invites')
+            .insert([{
+              event_id: eventId,
+              guest_name: guestName,
+              qr_code_id: qrCodeData ? qrCodeData.id : null,
+              token_id: tokenId
+            }])
+            .select()
+            .single();
+          
+          if (insertError) {
+            console.error('Erro ao inserir convite:', insertError);
+            showToast('Erro ao criar convite: ' + insertError.message, 'error');
+            return null;
+          }
+          
+          invite = newInvite;
         }
         
         // PASSO 3: Convite criado com sucesso, agora gerar o PDF
@@ -1676,9 +1722,9 @@
         
         const modifiedPdfBytes = await pdfDoc.save();
         
-        // PASSO 4: Marcar QR code como usado (se aplicável)
-        if (qrCodeData) {
-          await markQrCodeAsUsed(qrCodeData.id, invite.id, event.qr_delete_after_use);
+        // PASSO 4: Marcar QR code como usado (SE for novo convite)
+        if (qrCodeData && !existingInvite) {
+          await markQrCodeAsUsed(qrCodeData.id, invite.id);
         }
         
         return modifiedPdfBytes;
@@ -1954,10 +2000,9 @@
     
     function renderEventSettings(event) {
       const qrStats = qrCodes.filter(qr => qr.event_id === event.id);
-      const availableQrs = event.qr_delete_after_use 
-        ? qrStats.length 
-        : qrStats.filter(qr => !qr.used).length;
+      const availableQrs = qrStats.filter(qr => !qr.used).length; // ✅ Apenas QR codes não usados
       const totalQrs = qrStats.length;
+      const usedQrs = qrStats.filter(qr => qr.used).length;
       
       return `
         <div class="space-y-4">
@@ -2020,7 +2065,7 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
               <option value="none" ${event.text_transform === 'none' ? 'selected' : ''}>Nenhuma</option>
               <option value="uppercase" ${event.text_transform === 'uppercase' ? 'selected' : ''}>MAIÚSCULAS</option>
-              <option value="lowercase" ${event.text_transform === 'lowercase' ? 'selected' : ''}>minúsculas</option>
+              <option value="lowercase" ${event.text_transform === 'lowercase' ? 'selected' : ''}>min  sculas</option>
               <option value="capitalize" ${event.text_transform === 'capitalize' ? 'selected' : ''}>Capitalizado</option>
             </select>
           </div>
@@ -2052,7 +2097,7 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
             <p class="text-xs text-gray-500 mt-1">
               ${event.qr_enabled ? 
-                `Atual: ${qrStats.length} QR code${qrStats.length !== 1 ? 's' : ''} disponíve${qrStats.length !== 1 ? 'is' : 'l'}` : 
+                `${availableQrs} disponíve${availableQrs !== 1 ? 'is' : 'l'} / ${totalQrs} total (${usedQrs} usado${usedQrs !== 1 ? 's' : ''})` : 
                 'Manual (QR codes desativados)'}
             </p>
           </div>
@@ -2136,9 +2181,7 @@
                 </span>
               </label>
               <span class="text-xs text-gray-500">
-                ${event.qr_enabled ? (event.qr_delete_after_use 
-                  ? `${availableQrs} disponíve${availableQrs !== 1 ? 'is' : 'l'}` 
-                  : `${availableQrs}/${totalQrs} disponíve${availableQrs !== 1 ? 'is' : 'l'}`) : ''}
+                ${event.qr_enabled ? `${availableQrs} disponíve${availableQrs !== 1 ? 'is' : 'l'}` : ''}
               </span>
             </div>
             
@@ -2152,21 +2195,18 @@
             
             ${event.qr_enabled ? `
               <div class="space-y-3 bg-gradient-to-br from-indigo-50 to-purple-50 p-4 rounded-lg border-2 border-indigo-200">
-                <div>
-                  <label class="flex items-center mb-2">
-                    <input 
-                      type="checkbox" 
-                      ${event.qr_delete_after_use ? 'checked' : ''}
-                      onchange="updateEvent('${event.id}', { qr_delete_after_use: this.checked })"
-                      class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
-                    <span class="ml-2 text-xs font-medium text-gray-700">
-                      Eliminar QR após uso
-                    </span>
-                  </label>
-                  <p class="text-xs text-gray-500 ml-6">
-                    ${event.qr_delete_after_use ? 
-                      '✓ QR codes serão eliminados após gerar convite' : 
-                      '○ QR codes serão marcados como usados (mantidos na BD)'}
+                <div class="bg-blue-50 border border-blue-300 p-3 rounded-lg">
+                  <p class="text-xs text-blue-800 font-medium">
+                    💡 <strong>Importante:</strong> Cada QR code é usado uma vez por convite. O cliente pode baixar o mesmo convite novamente com o mesmo QR code.
+                  </p>
+                </div>
+                
+                <div class="bg-white p-3 rounded-lg border border-gray-200">
+                  <p class="text-xs text-gray-700">
+                    📊 <strong>Estat  sticas:</strong><br>
+                    • Disponíveis: <span class="font-bold text-green-600">${availableQrs}</span><br>
+                    • Usados: <span class="font-bold text-orange-600">${usedQrs}</span><br>
+                    • Total: <span class="font-bold text-indigo-600">${totalQrs}</span>
                   </p>
                 </div>
                 
@@ -2325,7 +2365,7 @@
                     <button 
                       onclick="handleRedownload('${event.id}', '${invite.guest_name}')"
                       class="text-indigo-600 hover:text-indigo-800 text-sm">
-                         Baixar
+                           Baixar
                     </button>
                     <button 
                       onclick="confirmDeleteInvite('${invite.id}', '${invite.guest_name}')"
@@ -2379,7 +2419,14 @@
       }
       
       const eventInvites = invites.filter(i => i.event_id === event.id);
-      const remainingInvites = event.max_invites - eventInvites.length;
+      const qrStats = qrCodes.filter(qr => qr.event_id === event.id);
+      const availableQrs = qrStats.filter(qr => !qr.used).length;
+      const usedQrs = qrStats.filter(qr => qr.used).length;
+      const totalQrs = qrStats.length;
+      
+      // ✅ LIMITE REAL: Se QR ativado → usa QR codes disponíveis, senão usa max_invites
+      const effectiveLimit = event.qr_enabled ? totalQrs : event.max_invites;
+      const remainingInvites = event.qr_enabled ? availableQrs : (event.max_invites - eventInvites.length);
       
       return `
         <div class="flex items-center justify-center min-h-full bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4">
@@ -2390,6 +2437,7 @@
               <p class="text-gray-600">Gere o seu convite personalizado</p>
               <p class="text-sm text-gray-500 mt-2">
                 ${remainingInvites} convite${remainingInvites !== 1 ? 's' : ''} disponíve${remainingInvites !== 1 ? 'is' : 'l'}
+                ${event.qr_enabled ? `(${availableQrs} QR codes disponíveis)` : ''}
               </p>
             </div>
             
@@ -2899,12 +2947,10 @@
         // ✅ SE QR codes estiverem ativados, avisar se o limite for maior que QR codes disponíveis
         if (event.qr_enabled) {
           const qrs = await loadQrCodes(eventId);
-          const availableQrs = event.qr_delete_after_use 
-            ? qrs.length 
-            : qrs.filter(qr => !qr.used).length;
+          const availableQrs = qrs.filter(qr => !qr.used).length;
           
-          if (newLimit > qrs.length) {
-            showToast(`Atenção: Limite definido para ${newLimit}, mas só existem ${qrs.length} QR code${qrs.length !== 1 ? 's' : ''}. Pode precisar carregar mais QR codes.`, 'error');
+          if (newLimit > availableQrs) {
+            showToast(`Atenção: Limite definido para ${newLimit}, mas só existem ${availableQrs} QR code${availableQrs !== 1 ? 's' : ''} disponíve${availableQrs !== 1 ? 'is' : 'l'}. Carregue mais QR codes!`, 'error');
           }
         }
         
@@ -3491,5 +3537,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c6fca68116c06e3',t:'MTc2OTkzMTUyMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c700c9142d20db4',t:'MTc2OTkzNDIzMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
