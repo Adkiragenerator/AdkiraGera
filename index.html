@@ -2322,6 +2322,8 @@
                   white-space: nowrap;
                   z-index: 10;
                   cursor: move;
+                  left: 100px;
+                  top: 100px;
                 ">
                 Nome Exemplo
               </div>
@@ -2342,6 +2344,10 @@
                     color: #6366f1;
                     font-weight: 600;
                     text-align: center;
+                    left: 100px;
+                    top: 200px;
+                    width: 100px;
+                    height: 100px;
                   ">
                   QR CODE<br>${event.qr_size_pt}pt
                   <div class="resize-handle bottom-right" onmousedown="startResize(event)" ontouchstart="startResize(event)"></div>
@@ -2528,7 +2534,7 @@
         await updateEvent(eventId, { multiple_tokens: enabled });
         
         if (enabled) {
-          // ✅ Criar automaticamente 2 tokens quando ativar a opção
+          //       Criar automaticamente 2 tokens quando ativar a opção
           const existingTokens = await loadEventTokens(eventId);
           
           if (existingTokens.length === 0) {
@@ -3022,6 +3028,11 @@
         
         await loadInvites(eventId);
         await loadQrCodes(eventId);
+        
+        // ✅ Carregar tokens se múltiplos tokens estiverem ativados
+        if (currentEvent.multiple_tokens) {
+          await loadEventTokens(eventId);
+        }
         
         subscribeToEvent(eventId);
         
@@ -3540,5 +3551,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c702c53d44806e3',t:'MTc2OTkzNTUzMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c714209769d06e3',t:'MTc2OTk0NjkwNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
