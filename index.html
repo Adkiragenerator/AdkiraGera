@@ -333,14 +333,66 @@
     }
     
     async function handleRealtimeUpdate(payload) {
+      console.log('🔄 Realtime update recebido:', payload.eventType);
+      
       if (currentView === 'admin' && selectedEventId) {
         await loadInvites(selectedEventId);
+        await loadQrCodes(selectedEventId);
         updateInvitesList();
+        
+        // ✅ Atualizar estatísticas no painel admin também
+        render();
+        setTimeout(async () => {
+          if (currentEvent && currentEvent.pdf_path) {
+            const pdfBlob = await downloadFile(currentEvent.pdf_path);
+            if (pdfBlob) {
+              const arrayBuffer = await pdfBlob.arrayBuffer();
+              await renderPdfOnCanvas(new Uint8Array(arrayBuffer), currentEvent.page_number);
+              initDragAndDrop();
+            }
+          }
+        }, 100);
       } else if (currentView === 'client' && currentEvent) {
+        // ✅ CORRIGIDO: Recarregar convites do banco de dados
         await loadInvites(currentEvent.id);
         await loadQrCodes(currentEvent.id);
-        updateClientInvitesList();
-        updateClientStats(); // ✅ Atualizar estatísticas em tempo real
+        
+        // ✅ CRÍTICO: Forçar re-render completo da seção de convites gerados
+        const clientSection = document.querySelector('#clientInvitesList');
+        if (clientSection) {
+          const eventInvites = invites.filter(i => i.event_id === currentEvent.id);
+          
+          if (eventInvites.length > 0) {
+            // Mostrar a seção se estava escondida
+            const section = clientSection.parentElement;
+            if (section) {
+              section.style.display = 'block';
+            }
+            
+            // Re-renderizar a lista completa
+            clientSection.innerHTML = eventInvites.map(invite => `
+              <div class="flex items-center justify-between bg-gray-50 px-4 py-3 rounded-lg">
+                <span class="font-medium text-gray-800">${invite.guest_name}</span>
+                <button 
+                  onclick="handleClientRedownload('${currentEvent.id}', '${invite.guest_name}')"
+                  class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                  ⬇ Baixar
+                </button>
+              </div>
+            `).join('');
+            
+            // Atualizar o contador do título
+            const titleElement = section.querySelector('h3');
+            if (titleElement) {
+              titleElement.textContent = `Convites Gerados (${eventInvites.length})`;
+            }
+          }
+        }
+        
+        // ✅ Atualizar estatísticas (disponíveis/gerados)
+        updateClientStats();
+        
+        console.log('✅ Convites atualizados em tempo real:', invites.length);
       }
     }
     
@@ -3595,5 +3647,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c714c35b5f106e3',t:'MTc2OTk0NzMyNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c715df054f106e3',t:'MTc2OTk0ODA1MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
