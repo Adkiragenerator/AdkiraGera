@@ -221,8 +221,6 @@
     // Configurar listener permanente para mudanças de autenticação
     function setupAuthListener() {
       sb.auth.onAuthStateChange((event, session) => {
-        console.log('Auth state change:', event, !!session);
-        
         // Atualizar estado global
         const wasAuthenticated = isAdminAuthenticated;
         isAdminAuthenticated = !!session;
@@ -242,10 +240,8 @@
           }
         } else if (event === 'TOKEN_REFRESHED') {
           // Token foi renovado, manter usuário autenticado
-          console.log('Token refreshed successfully');
         } else if (event === 'USER_UPDATED') {
           // Informações do usuário foram atualizadas
-          console.log('User updated');
         }
       });
     }
@@ -342,7 +338,9 @@
         updateInvitesList();
       } else if (currentView === 'client' && currentEvent) {
         await loadInvites(currentEvent.id);
+        await loadQrCodes(currentEvent.id);
         updateClientInvitesList();
+        updateClientStats(); // ✅ Atualizar estatísticas em tempo real
       }
     }
     
@@ -2425,15 +2423,25 @@
       }
       
       const eventInvites = invites.filter(i => i.event_id === event.id);
-      const qrStats = qrCodes.filter(qr => qr.event_id === event.id);
-      const availableQrs = qrStats.filter(qr => !qr.used).length;
-      const usedQrs = qrStats.filter(qr => qr.used).length;
-      const totalQrs = qrStats.length;
       
-      // ✅ LIMITE REAL: Se QR ativado → usa QR codes disponíveis, senão usa max_invites
-      const effectiveLimit = event.qr_enabled ? totalQrs : event.max_invites;
-      const remainingInvites = event.qr_enabled ? availableQrs : (event.max_invites - eventInvites.length);
-      const generatedCount = eventInvites.length;
+      // ✅ CORRIGIDO: Contagem baseada APENAS no que foi configurado
+      let effectiveLimit, remainingInvites, generatedCount;
+      
+      if (event.qr_enabled) {
+        // ✅ QR ATIVADO: Conta baseado em QR codes
+        const qrStats = qrCodes.filter(qr => qr.event_id === event.id);
+        const availableQrs = qrStats.filter(qr => !qr.used).length;
+        const totalQrs = qrStats.length;
+        
+        effectiveLimit = totalQrs;
+        remainingInvites = availableQrs;
+        generatedCount = eventInvites.length;
+      } else {
+        // ✅ QR DESATIVADO: Conta baseado em max_invites
+        effectiveLimit = event.max_invites;
+        generatedCount = eventInvites.length;
+        remainingInvites = event.max_invites - generatedCount;
+      }
       
       return `
         <div class="flex items-center justify-center min-h-full bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4">
@@ -3107,6 +3115,12 @@
           downloadPdf(pdfBytes, `${guestName}.pdf`);
           showToast('Convite gerado!');
           document.getElementById('guestName').value = '';
+          
+          // ✅ Atualizar lista e estatísticas localmente (sem esperar realtime)
+          await loadInvites(event.id);
+          await loadQrCodes(event.id);
+          updateClientInvitesList();
+          updateClientStats();
         }
         
         btn.disabled = false;
@@ -3470,6 +3484,36 @@
       }
     }
     
+    // ✅ NOVA FUNÇÃO: Atualizar estatísticas em tempo real
+    function updateClientStats() {
+      const statsElement = document.querySelector('p.text-sm.text-gray-500.mt-2');
+      if (!statsElement || !currentEvent) return;
+      
+      const eventInvites = invites.filter(i => i.event_id === currentEvent.id);
+      
+      let effectiveLimit, remainingInvites, generatedCount;
+      
+      if (currentEvent.qr_enabled) {
+        const qrStats = qrCodes.filter(qr => qr.event_id === currentEvent.id);
+        const availableQrs = qrStats.filter(qr => !qr.used).length;
+        const totalQrs = qrStats.length;
+        
+        effectiveLimit = totalQrs;
+        remainingInvites = availableQrs;
+        generatedCount = eventInvites.length;
+      } else {
+        effectiveLimit = currentEvent.max_invites;
+        generatedCount = eventInvites.length;
+        remainingInvites = currentEvent.max_invites - generatedCount;
+      }
+      
+      statsElement.innerHTML = `
+        <span class="font-semibold text-green-600">${remainingInvites} disponíve${remainingInvites !== 1 ? 'is' : 'l'}</span>
+        <span class="mx-2">•</span>
+        <span class="font-semibold text-blue-600">${generatedCount} gerado${generatedCount !== 1 ? 's' : ''}</span>
+      `;
+    }
+    
     // ============================================
     // RENDER
     // ============================================
@@ -3551,5 +3595,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c714209769d06e3',t:'MTc2OTk0NjkwNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c714c35b5f106e3',t:'MTc2OTk0NzMyNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
