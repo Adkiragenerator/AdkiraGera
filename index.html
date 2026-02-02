@@ -3,7 +3,7 @@
  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gerador de Convites PDF</title><!-- Tailwind CSS -->
+  <title>UdO - Gerador de Convites</title><!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script><!-- Google Fonts - Poppins -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -640,7 +640,7 @@
         console.error('Erro ao carregar evento por token:', error);
         
         if (error.code === 'PGRST301') {
-          showToast('Erro de liga  ão à base de dados. Tente novamente', 'error');
+          showToast('Erro de liga���ão à base de dados. Tente novamente', 'error');
         } else if (error.message.includes('JWT') || error.message.includes('auth')) {
           showToast('Erro de autenticação. Recarregue a página', 'error');
         } else {
@@ -992,7 +992,7 @@
         if (validationError) {
           console.error('Erro de validação:', validationError);
           
-          // Mensagens espec  ficas baseadas no erro do backend
+          // Mensagens espec��ficas baseadas no erro do backend
           if (validationError.message.includes('limit reached')) {
             showToast('Limite máximo de convites atingido', 'error');
           } else if (validationError.message.includes('event not found')) {
@@ -1317,7 +1317,7 @@
         const canvas = document.getElementById('pdfCanvas');
         if (!canvas) return;
         
-        // ✅ For  ar o navegador a recalcular o width ANTES de reposicionar
+        // ✅ For��ar o navegador a recalcular o width ANTES de reposicionar
         void textElement.offsetWidth;
         
         const { x, y } = ptToPx(
@@ -1615,7 +1615,7 @@
               const fontBytes = await fontBlob.arrayBuffer();
               font = await pdfDoc.embedFont(fontBytes);
             } else {
-              showToast('Fonte personalizada não encontrada. A usar fonte padr  o', 'error');
+              showToast('Fonte personalizada não encontrada. A usar fonte padr��o', 'error');
               font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
             }
           } else {
@@ -1717,7 +1717,7 @@
             }
             
             if (!/^[A-Za-z0-9+/=]+$/.test(base64Data)) {
-              throw new Error('Base64 contém caracteres inválidos');
+              throw new Error('Base64 cont��m caracteres inválidos');
             }
             
             let qrBytes;
@@ -1816,17 +1816,16 @@
     // ============================================
     function renderHome() {
       return `
-        <div class="flex items-center justify-center min-h-full bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4">
+        <div class="flex items-center justify-center min-h-full bg-gradient-to-br from-cyan-50 via-blue-50 to-teal-50 p-4">
           <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
             <div class="text-center mb-8">
-              <div class="text-6xl mb-4">🎉</div>
-              <h1 class="text-3xl font-bold text-gray-800 mb-2">Gerador de Convites</h1>
-              <p class="text-gray-600">Sistema profissional de convites personalizados</p>
+              <h1 class="text-3xl font-bold text-gray-800 mb-2">UdO</h1>
+              <p class="text-gray-600">Gere os seus convites</p>
             </div>
             
             <button 
               onclick="navigate('login')"
-              class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition mb-4">
+              class="w-full bg-[#007f9f] hover:bg-[#006680] text-white font-semibold py-3 px-6 rounded-lg transition mb-4">
               Acesso Administrador
             </button>
             
@@ -1852,7 +1851,7 @@
               
               <button 
                 onclick="handleTokenSubmit()"
-                class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition">
+                class="w-full bg-[#007f9f] hover:bg-[#006680] text-white font-semibold py-3 px-6 rounded-lg transition">
                 Acessar Convite
               </button>
             </div>
@@ -1863,7 +1862,7 @@
     
     function renderLogin() {
       return `
-        <div class="flex items-center justify-center min-h-full bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4">
+        <div class="flex items-center justify-center min-h-full bg-gradient-to-br from-cyan-50 via-blue-50 to-teal-50 p-4">
           <div class="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
             <button 
               onclick="navigate('home')"
@@ -1903,13 +1902,13 @@
               
               <button 
                 type="submit"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition">
+                class="w-full bg-[#007f9f] hover:bg-[#006680] text-white font-semibold py-3 px-6 rounded-lg transition">
                 Entrar
               </button>
             </form>
             
             <div class="mt-6 pt-4 border-t border-gray-200 text-center text-xs text-gray-500">
-                 AdKira 2026 Todos os direitos reservados
+              © AdKira 2026 Todos os direitos reservados
             </div>
           </div>
         </div>
@@ -1982,7 +1981,7 @@
                 </button>
                 <button 
                   type="submit"
-                  class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition">
+                  class="flex-1 bg-[#007f9f] hover:bg-[#006680] text-white font-semibold py-3 px-6 rounded-lg transition">
                   Criar Evento
                 </button>
               </div>
@@ -2038,7 +2037,7 @@
             ${event ? renderEventMain(event) : `
               <div class="flex items-center justify-center h-full">
                 <div class="text-center text-gray-500">
-                  <div class="text-6xl mb-4">   </div>
+                  <div class="text-6xl mb-4">���</div>
                   <p class="text-xl">Selecione ou crie um evento</p>
                 </div>
               </div>
@@ -2115,7 +2114,7 @@
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
               <option value="none" ${event.text_transform === 'none' ? 'selected' : ''}>Nenhuma</option>
               <option value="uppercase" ${event.text_transform === 'uppercase' ? 'selected' : ''}>MAIÚSCULAS</option>
-              <option value="lowercase" ${event.text_transform === 'lowercase' ? 'selected' : ''}>min  sculas</option>
+              <option value="lowercase" ${event.text_transform === 'lowercase' ? 'selected' : ''}>min��sculas</option>
               <option value="capitalize" ${event.text_transform === 'capitalize' ? 'selected' : ''}>Capitalizado</option>
             </select>
           </div>
@@ -2253,7 +2252,7 @@
                 
                 <div class="bg-white p-3 rounded-lg border border-gray-200">
                   <p class="text-xs text-gray-700">
-                    📊 <strong>Estat  sticas:</strong><br>
+                    📊 <strong>Estat��sticas:</strong><br>
                     • Disponíveis: <span class="font-bold text-green-600">${availableQrs}</span><br>
                     • Usados: <span class="font-bold text-orange-600">${usedQrs}</span><br>
                     • Total: <span class="font-bold text-indigo-600">${totalQrs}</span>
@@ -2421,7 +2420,7 @@
                     <button 
                       onclick="handleRedownload('${event.id}', '${invite.guest_name}')"
                       class="text-indigo-600 hover:text-indigo-800 text-sm">
-                           Baixar
+                      ���� Baixar
                     </button>
                     <button 
                       onclick="confirmDeleteInvite('${invite.id}', '${invite.guest_name}')"
@@ -2444,7 +2443,7 @@
         return `
           <div class="flex items-center justify-center min-h-full bg-gray-50 p-4">
             <div class="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-              <div class="text-6xl mb-4">   ️</div>
+              <div class="text-6xl mb-4">���️</div>
               <h2 class="text-2xl font-bold text-gray-800 mb-4">Token Inválido</h2>
               <p class="text-gray-600 mb-6">O token fornecido não corresponde a nenhum evento.</p>
               <button 
@@ -2461,7 +2460,7 @@
         return `
           <div class="flex items-center justify-center min-h-full bg-gray-50 p-4">
             <div class="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-              <div class="text-6xl mb-4">    </div>
+              <div class="text-6xl mb-4">����</div>
               <h2 class="text-2xl font-bold text-gray-800 mb-4">Evento Inativo</h2>
               <p class="text-gray-600 mb-6">Este evento não está mais aceitando convites.</p>
               <button 
@@ -2489,14 +2488,14 @@
         remainingInvites = availableQrs;
         generatedCount = eventInvites.length;
       } else {
-        // ✅ QR DESATIVADO: Conta baseado em max_invites
+        // ��� QR DESATIVADO: Conta baseado em max_invites
         effectiveLimit = event.max_invites;
         generatedCount = eventInvites.length;
         remainingInvites = event.max_invites - generatedCount;
       }
       
       return `
-        <div class="flex items-center justify-center min-h-full bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4">
+        <div class="flex items-center justify-center min-h-full bg-gradient-to-br from-cyan-50 via-blue-50 to-teal-50 p-4">
           <div class="bg-white rounded-2xl shadow-xl p-8 max-w-2xl w-full">
             <div class="text-center mb-8">
               <div class="text-6xl mb-4">🎉</div>
@@ -2530,13 +2529,13 @@
             <form onsubmit="handleGenerateInvite(event)" class="space-y-4 mb-8" autocomplete="off">
               <div>
                 <label for="guestName" class="block text-sm font-medium text-gray-700 mb-2">
-                  Seu Nome Completo
+                  Insere o nome do convidado
                 </label>
                 <input 
                   type="text" 
                   id="guestName"
                   required
-                  placeholder="Digite seu nome"
+                  placeholder="Digite o nome"
                   autocomplete="off"
                   autocorrect="off"
                   autocapitalize="off"
@@ -2547,7 +2546,7 @@
               <button 
                 type="submit"
                 id="generateBtn"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition">
+                class="w-full bg-[#007f9f] hover:bg-[#006680] text-white font-semibold py-3 px-6 rounded-lg transition">
                 Gerar Convite
               </button>
             </form>
@@ -2563,7 +2562,7 @@
                       <span class="font-medium text-gray-800">${invite.guest_name}</span>
                       <button 
                         onclick="handleClientRedownload('${event.id}', '${invite.guest_name}')"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition">
+                        class="bg-[#007f9f] hover:bg-[#006680] text-white px-4 py-2 rounded-lg text-sm transition">
                         ⬇ Baixar
                       </button>
                     </div>
@@ -2594,7 +2593,7 @@
         await updateEvent(eventId, { multiple_tokens: enabled });
         
         if (enabled) {
-          //       Criar automaticamente 2 tokens quando ativar a opção
+          // ����� Criar automaticamente 2 tokens quando ativar a opção
           const existingTokens = await loadEventTokens(eventId);
           
           if (existingTokens.length === 0) {
@@ -3012,7 +3011,7 @@
           return;
         }
         
-        // ✅ SE QR codes estiverem ativados, avisar se o limite for maior que QR codes disponíveis
+        // ������� SE QR codes estiverem ativados, avisar se o limite for maior que QR codes disponíveis
         if (event.qr_enabled) {
           const qrs = await loadQrCodes(eventId);
           const availableQrs = qrs.filter(qr => !qr.used).length;
@@ -3251,7 +3250,7 @@
         const pages = pdfDoc.getPages();
         
         if (event.page_number < 1 || event.page_number > pages.length) {
-          showToast(`Página ${event.page_number} não existe. O PDF tem ${pages.length} página${pages.length !== 1 ? 's' : ''}.`, 'error');
+          showToast(`P��gina ${event.page_number} não existe. O PDF tem ${pages.length} página${pages.length !== 1 ? 's' : ''}.`, 'error');
           btn.textContent = originalText;
           btn.disabled = false;
           return;
@@ -3419,7 +3418,7 @@
         confirmBtn.classList.add('text-red-800', 'font-bold');
         
         setTimeout(() => {
-          confirmBtn.textContent = '🗑 Eliminar';
+          confirmBtn.textContent = '���� Eliminar';
           confirmBtn.classList.remove('text-red-800', 'font-bold');
           confirmBtn.classList.add('text-red-600', 'hover:text-red-800');
         }, 3000);
@@ -3647,5 +3646,5 @@
     
     init();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c715df054f106e3',t:'MTc2OTk0ODA1MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c78f857f0c906e3',t:'MTc3MDAyNzc3NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
